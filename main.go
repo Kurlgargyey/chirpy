@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"sync/atomic"
@@ -38,6 +39,47 @@ func (cfg *apiConfig) resetHandler() http.Handler {
 		})
 }
 
+type Chirp struct {
+	Body string
+}
+
+type ValidationError struct {
+	Error string `json:"error"`
+}
+type ValidResponse struct {
+	Valid bool `json:"valid"`
+}
+
+func validateChirpHandler() http.Handler {
+	return http.HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			body := r.Body
+			var chirp Chirp
+			if err := json.NewDecoder(body).Decode(&chirp); err != nil {
+				writeError(w, fmt.Sprintf("%s", err))
+				return
+			}
+			if len(chirp.Body) > 140 {
+				writeError(w, "overlong chirp")
+				return
+			}
+			if len(chirp.Body) == 0 {
+				writeError(w, "empty chirp")
+				return
+			}
+			dat, _ := json.Marshal(ValidResponse{Valid: true})
+			w.WriteHeader(200)
+			w.Write(dat)
+		})
+}
+
+func writeError(w http.ResponseWriter, err string) {
+	response := ValidationError{Error: err}
+	dat, _ := json.Marshal(response)
+	w.WriteHeader(400)
+	w.Write(dat)
+}
+
 func main() {
 	//define objects
 	apiCfg := apiConfig{}
@@ -55,6 +97,7 @@ func main() {
 		})
 	srvMux.Handle("GET /admin/metrics", apiCfg.metricsHandler())
 	srvMux.Handle("POST /admin/reset", apiCfg.resetHandler())
+	srvMux.Handle("POST /api/validate_chirp", validateChirpHandler())
 
 	//run server
 	server := http.Server{
