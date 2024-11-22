@@ -48,7 +48,7 @@ func main() {
 			response.Write([]byte("OK"))
 		})
 	srvMux.Handle("GET /metrics", apiCfg.metricsHandler())
-	srvMux.Handle("/reset", apiCfg.resetHandler())
+	srvMux.Handle("POST /reset", apiCfg.resetHandler())
 
 	//run server
 	server := http.Server{
