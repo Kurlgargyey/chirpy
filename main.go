@@ -21,7 +21,13 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 func (cfg *apiConfig) metricsHandler() http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits.Load())))
+			w.Header().Add("Content-Type", "text/html")
+			w.Write([]byte(fmt.Sprintf(`<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`, cfg.fileserverHits.Load())))
 		})
 }
 
@@ -42,13 +48,13 @@ func main() {
 	//register routes!
 	srvMux.Handle("/app/",
 		apiCfg.middlewareMetricsInc(fileServer))
-	srvMux.HandleFunc("GET /healthz",
+	srvMux.HandleFunc("GET /api/healthz",
 		func(response http.ResponseWriter, req *http.Request) {
 			response.Header().Add("Content-Type", "text/plain; charset=utf-8")
 			response.Write([]byte("OK"))
 		})
-	srvMux.Handle("GET /metrics", apiCfg.metricsHandler())
-	srvMux.Handle("POST /reset", apiCfg.resetHandler())
+	srvMux.Handle("GET /admin/metrics", apiCfg.metricsHandler())
+	srvMux.Handle("POST /admin/reset", apiCfg.resetHandler())
 
 	//run server
 	server := http.Server{
