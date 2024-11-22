@@ -1,11 +1,12 @@
 package main
 
 import (
-	"net/http"
 	"encoding/json"
-	"mime"
-	"strings"
 	"fmt"
+	"mime"
+	"net/http"
+	"regexp"
+	"strings"
 )
 
 type Chirp struct {
@@ -28,13 +29,12 @@ func validateChirpHandler() http.Handler {
 			contentType := r.Header.Get("Content-Type")
 			mediaType, _, err := mime.ParseMediaType(contentType)
 			if err != nil || mediaType != "application/json" || contentType == "" {
-				writeError(w, "Content-Type must be application/json", 415)
+				writeError(w, "Content-Type must be application/json", 400)
 				return
 			}
 			body := r.Body
 			var chirp Chirp
 			decoder := json.NewDecoder(body)
-			decoder.DisallowUnknownFields()
 			if err := decoder.Decode(&chirp); err != nil {
 				writeError(w, fmt.Sprintf("%s", err), 400)
 				return
@@ -45,20 +45,23 @@ func validateChirpHandler() http.Handler {
 			}
 			*chirp.Body = strings.TrimSpace(*chirp.Body)
 			if len(*chirp.Body) > maxChirpLength {
-				writeError(w, "overlong chirp", 422)
+				writeError(w, "overlong chirp", 400)
 				return
 			}
 			if len(*chirp.Body) == 0 {
-				writeError(w, "empty chirp", 422)
+				writeError(w, "empty chirp", 400)
 				return
 			}
-			*chirp.Body = strings.ReplaceAll(*chirp.Body, "kerfluffle", "****")
-			*chirp.Body = strings.ReplaceAll(*chirp.Body, "sharbert", "****")
-			*chirp.Body = strings.ReplaceAll(*chirp.Body, "fornax", "****")
+			chirp.CleanBody()
 			dat, _ := json.Marshal(CleanedChirp{CleanedBody: *chirp.Body})
 			w.WriteHeader(200)
 			w.Write(dat)
 		})
+}
+
+func (chirp *Chirp) CleanBody() {
+	re := regexp.MustCompile(`(?i)kerfuffle|(?i)sharbert|(?i)fornax`)
+	*chirp.Body = re.ReplaceAllString(*chirp.Body, "****")
 }
 
 func writeError(w http.ResponseWriter, err string, code int) {
