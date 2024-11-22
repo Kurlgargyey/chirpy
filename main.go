@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"mime"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -40,7 +42,7 @@ func (cfg *apiConfig) resetHandler() http.Handler {
 }
 
 type Chirp struct {
-	Body string
+	Body *string `json:"body" required:"true"`
 }
 
 type ValidationError struct {
@@ -53,18 +55,34 @@ type ValidResponse struct {
 func validateChirpHandler() http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
+			defer r.Body.Close()
+			maxChirpLength := 140
+			w.Header().Add("Content-Type", "application/json")
+			contentType := r.Header.Get("Content-Type")
+			mediaType, _, err := mime.ParseMediaType(contentType)
+			if err != nil || mediaType != "application/json" || contentType == "" {
+				writeError(w, "Content-Type must be application/json", 415)
+				return
+			}
 			body := r.Body
 			var chirp Chirp
-			if err := json.NewDecoder(body).Decode(&chirp); err != nil {
-				writeError(w, fmt.Sprintf("%s", err))
+			decoder := json.NewDecoder(body)
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&chirp); err != nil {
+				writeError(w, fmt.Sprintf("%s", err), 400)
 				return
 			}
-			if len(chirp.Body) > 140 {
-				writeError(w, "overlong chirp")
+			if chirp.Body == nil {
+				writeError(w, "missing required fields: body", 400)
 				return
 			}
-			if len(chirp.Body) == 0 {
-				writeError(w, "empty chirp")
+			*chirp.Body = strings.TrimSpace(*chirp.Body)
+			if len(*chirp.Body) > maxChirpLength {
+				writeError(w, "overlong chirp", 422)
+				return
+			}
+			if len(*chirp.Body) == 0 {
+				writeError(w, "empty chirp", 422)
 				return
 			}
 			dat, _ := json.Marshal(ValidResponse{Valid: true})
@@ -73,10 +91,10 @@ func validateChirpHandler() http.Handler {
 		})
 }
 
-func writeError(w http.ResponseWriter, err string) {
+func writeError(w http.ResponseWriter, err string, code int) {
 	response := ValidationError{Error: err}
 	dat, _ := json.Marshal(response)
-	w.WriteHeader(400)
+	w.WriteHeader(code)
 	w.Write(dat)
 }
 
