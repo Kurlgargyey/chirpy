@@ -42,12 +42,12 @@ func main() {
 	//register routes!
 	srvMux.Handle("/app/",
 		apiCfg.middlewareMetricsInc(fileServer))
-	srvMux.HandleFunc("/healthz",
+	srvMux.HandleFunc("GET /healthz",
 		func(response http.ResponseWriter, req *http.Request) {
 			response.Header().Add("Content-Type", "text/plain; charset=utf-8")
 			response.Write([]byte("OK"))
 		})
-	srvMux.Handle("/metrics", apiCfg.metricsHandler())
+	srvMux.Handle("GET /metrics", apiCfg.metricsHandler())
 	srvMux.Handle("/reset", apiCfg.resetHandler())
 
 	//run server
