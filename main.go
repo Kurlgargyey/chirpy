@@ -14,13 +14,15 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	dbQueries      *database.Queries
+	db             *database.Queries
+	platform       string
 }
 
 func main() {
 	//define objects
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		fmt.Println("error connecting to database: %w", err)
@@ -29,7 +31,8 @@ func main() {
 	dbQueries := database.New(db)
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
-		dbQueries:      dbQueries,
+		db:             dbQueries,
+		platform:       platform,
 	}
 	srvMux := http.NewServeMux()
 	fileServer := http.StripPrefix("/app",
@@ -46,6 +49,7 @@ func main() {
 	srvMux.Handle("GET /admin/metrics", apiCfg.metricsHandler())
 	srvMux.Handle("POST /admin/reset", apiCfg.resetHandler())
 	srvMux.Handle("POST /api/validate_chirp", validateChirpHandler())
+	srvMux.Handle("POST /api/users", apiCfg.createUserHandler())
 
 	//run server
 	server := http.Server{

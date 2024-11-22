@@ -25,10 +25,3 @@ func (cfg *apiConfig) metricsHandler() http.Handler {
 </html>`, cfg.fileserverHits.Load())))
 		})
 }
-
-func (cfg *apiConfig) resetHandler() http.Handler {
-	return http.HandlerFunc(
-		func(w http.ResponseWriter, r *http.Request) {
-			cfg.fileserverHits.Store(0)
-		})
-}
