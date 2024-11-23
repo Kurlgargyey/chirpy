@@ -4,10 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 type userRequestBody struct {
 	Email string `json:"email"`
+}
+
+type userResponse struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
 }
 
 func (cfg *apiConfig) createUserHandler() http.Handler {
@@ -25,8 +35,14 @@ func (cfg *apiConfig) createUserHandler() http.Handler {
 				writeError(w, fmt.Sprintf("error creating user: %s", err), 400)
 				return
 			}
-			dat, _ := json.Marshal(user)
-			w.Header()
+			response := userResponse{
+				ID:        user.ID,
+				CreatedAt: user.CreatedAt,
+				UpdatedAt: user.UpdatedAt,
+				Email:     user.Email,
+			}
+			dat, _ := json.Marshal(response)
+			w.WriteHeader(201)
 			w.Write(dat)
 		})
 }
