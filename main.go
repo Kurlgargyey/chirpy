@@ -50,7 +50,10 @@ func main() {
 	srvMux.Handle("POST /admin/reset", apiCfg.resetHandler())
 	srvMux.Handle("POST /api/validate_chirp", validateChirpHandler())
 	srvMux.Handle("POST /api/users", apiCfg.createUserHandler())
+	srvMux.Handle("POST /api/login", apiCfg.loginHandler())
 	srvMux.Handle("POST /api/chirps", apiCfg.createChirpHandler())
+	srvMux.Handle("GET /api/chirps", apiCfg.getChirpsHandler())
+	srvMux.Handle("GET /api/chirps/{chirpID}", apiCfg.getChirpHandler())
 
 	//run server
 	server := http.Server{

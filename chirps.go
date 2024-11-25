@@ -53,3 +53,49 @@ func (cfg *apiConfig) createChirpHandler() http.Handler {
 		w.Write(dat)
 	})
 }
+
+func (cfg *apiConfig) getChirpsHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		defer r.Body.Close()
+		chirps, err := cfg.db.GetAllChirps(r.Context())
+		if err != nil {
+			writeError(w, fmt.Sprintf("error retrieving chirps: %s", err), 400)
+		}
+		var responseArray []chirpResponse
+		for _, chirp := range chirps {
+			responseArray = append(responseArray, chirpResponse{
+				ID:        chirp.ID,
+				CreatedAt: chirp.CreatedAt,
+				UpdatedAt: chirp.UpdatedAt,
+				Body:      chirp.Body,
+				UserID:    chirp.UserID,
+			})
+		}
+		dat, _ := json.Marshal(responseArray)
+		w.Write(dat)
+	})
+}
+
+func (cfg *apiConfig) getChirpHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/json")
+		defer r.Body.Close()
+
+		chirp, err := cfg.db.GetChirp(r.Context(), uuid.MustParse(r.PathValue("chirpID")))
+		if err != nil {
+			writeError(w, fmt.Sprintf("error retrieving chirp: %s", err), 404)
+			return
+		}
+		response := chirpResponse{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		}
+		dat, _ := json.Marshal(response)
+		w.WriteHeader(200)
+		w.Write(dat)
+	})
+}
