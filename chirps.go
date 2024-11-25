@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Kurlgargyey/chirpy/internal/auth"
 	"github.com/Kurlgargyey/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -32,9 +33,16 @@ func (cfg *apiConfig) createChirpHandler() http.Handler {
 			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
 			return
 		}
+		bearerToken, bearer_err := auth.GetBearerToken(r.Header)
+		tokenID, validation_err := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+		if validation_err != nil || bearer_err != nil {
+			w.WriteHeader(401)
+			return
+		}
+
 		chirpParams := database.CreateChirpParams{
 			Body:   requestBody.Body,
-			UserID: uuid.MustParse(requestBody.UserID),
+			UserID: tokenID,
 		}
 		chirp, err := cfg.db.CreateChirp(r.Context(), chirpParams)
 		if err != nil {

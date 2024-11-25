@@ -29,7 +29,6 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	if claims, ok := token.Claims.(*jwt.StandardClaims); ok && token.Valid {
-		fmt.Println(claims)
 		return uuid.MustParse(claims.Subject), nil
 	} else {
 		return uuid.Nil, err
