@@ -48,3 +48,15 @@ func TestExpiredToken(t *testing.T) {
 		t.Fatalf("TestExpiredToken failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
 	}
 }
+
+func TestWrongSecret(t *testing.T) {
+	tokenSecret := "lollmao"
+	userID := uuid.New()
+	expiresIn := time.Minute * 5
+
+	token, token_err := MakeJWT(userID, tokenSecret, expiresIn)
+	tokenID, validation_err := ValidateJWT(token, "lol")
+	if validation_err == nil || token_err != nil || tokenID != uuid.Nil {
+		t.Fatalf("TestWrongSecret failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
+	}
+}
