@@ -12,8 +12,13 @@ import (
 )
 
 type userRequestBody struct {
-	Password string `json:"password"`
-	Email    string `json:"email"`
+	Password  string `json:"password"`
+	Email     string `json:"email"`
+	ExpiresIn int    `json:"expires_in_seconds"`
+}
+type loginRequestBody struct {
+	userRequestBody
+	ExpiresIn int `json:"expires_in_seconds"`
 }
 
 type userResponse struct {
@@ -21,6 +26,10 @@ type userResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+}
+type loginResponse struct {
+	userResponse
+	Token string `json:"token"`
 }
 
 func (cfg *apiConfig) createUserHandler() http.Handler {
@@ -62,7 +71,7 @@ func (cfg *apiConfig) createUserHandler() http.Handler {
 func (cfg *apiConfig) loginHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		var requestBody userRequestBody
+		var requestBody loginRequestBody
 		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
 			return
@@ -75,11 +84,22 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 			w.Write([]byte("incorrect email or password"))
 			return
 		}
-		response := userResponse{
-			ID:        user.ID,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-			Email:     user.Email,
+
+		expiresIn := time.Hour
+		if requestBody.ExpiresIn != 0 {
+			expiresIn = time.Duration(requestBody.ExpiresIn)
+		}
+		token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+		if err != nil {
+			writeError(w, fmt.Sprintf("error obtaining JWT: %s", err), 400)
+		}
+
+		response := loginResponse{
+			userResponse: userResponse{ID: user.ID,
+				CreatedAt: user.CreatedAt,
+				UpdatedAt: user.UpdatedAt,
+				Email:     user.Email},
+			Token: token,
 		}
 		dat, _ := json.Marshal(response)
 		w.Write(dat)
