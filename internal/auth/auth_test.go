@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
@@ -58,5 +59,15 @@ func TestWrongSecret(t *testing.T) {
 	tokenID, validation_err := ValidateJWT(token, "lol")
 	if validation_err == nil || token_err != nil || tokenID != uuid.Nil {
 		t.Fatalf("TestWrongSecret failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
+	}
+}
+
+func TestGetBearer(t *testing.T) {
+	headers := make(http.Header)
+	empty_res, empty_err := GetBearerToken(headers)
+	headers.Add("Authorization", "Bearer lollmao")
+	set_res, set_err := GetBearerToken(headers)
+	if empty_res != "" || empty_err == nil || set_res != "lollmao" || set_err != nil {
+		t.Fatalf("TestGetBearer failed")
 	}
 }
