@@ -8,3 +8,7 @@ VALUES (
 	$3
 )
 RETURNING token;
+
+-- name: GetRefreshToken :one
+SELECT * FROM refresh_tokens
+WHERE token = $1;

@@ -32,6 +32,10 @@ type loginResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
+type accessTokenResponse struct {
+	Token string `json:"token"`
+}
+
 func (cfg *apiConfig) createUserHandler() http.Handler {
 	return http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
@@ -76,29 +80,27 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
 			return
 		}
-		user, fetch_err := cfg.db.GetUser(r.Context(), requestBody.Email)
-		hash_err := auth.CheckPasswordHash(requestBody.Password, user.HashedPassword)
+		user, fetchErr := cfg.db.GetUser(r.Context(), requestBody.Email)
+		hashErr := auth.CheckPasswordHash(requestBody.Password, user.HashedPassword)
 
-		if fetch_err != nil || hash_err != nil {
+		if fetchErr != nil || hashErr != nil {
 			w.WriteHeader(401)
 			w.Write([]byte("incorrect email or password"))
 			return
 		}
 
-		expiresIn := time.Hour
-
-		token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
+		token, err := auth.MakeJWT(user.ID, cfg.jwtSecret)
 		if err != nil {
 			writeError(w, fmt.Sprintf("error obtaining JWT: %s", err), 400)
 			return
 		}
-		refresh_token, err := auth.MakeRefreshToken()
+		refreshToken, err := auth.MakeRefreshToken()
 		if err != nil {
 			writeError(w, fmt.Sprintf("error obtaining refresh token: %s", err), 400)
 			return
 		}
 		refreshTokenParams := database.CreateRefreshTokenParams{
-			Token:     refresh_token,
+			Token:     refreshToken,
 			UserID:    user.ID,
 			ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
 		}
@@ -114,9 +116,32 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 				UpdatedAt: user.UpdatedAt,
 				Email:     user.Email},
 			Token:        token,
-			RefreshToken: refresh_token,
+			RefreshToken: refreshToken,
 		}
 		dat, _ := json.Marshal(response)
+		w.Write(dat)
+	})
+}
+
+func (cfg *apiConfig) refreshTokenHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		bearerToken, bearerErr := auth.GetBearerToken(r.Header)
+		if bearerErr != nil {
+			writeError(w, "could not obtain a bearer token", 400)
+			return
+		}
+		token, err := cfg.db.GetRefreshToken(r.Context(), bearerToken)
+		if err != nil || token.RevokedAt.Valid {
+			writeError(w, "could not obtain a valid refresh token", 401)
+			return
+		}
+		accessToken, err := auth.MakeJWT(token.UserID, cfg.jwtSecret)
+		if err != nil {
+			writeError(w, "could not obtain a new access token", 401)
+			return
+		}
+		dat, _ := json.Marshal(accessTokenResponse{Token: accessToken})
 		w.Write(dat)
 	})
 }

@@ -5,9 +5,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// Override time value for tests.  Restore default value after.
+func at(t time.Time, f func()) {
+	jwt.TimeFunc = func() time.Time {
+		return t
+	}
+	f()
+	jwt.TimeFunc = time.Now
+}
 
 func TestHashPassword(t *testing.T) {
 	password := "Start2020"
@@ -28,9 +38,8 @@ func TestCheckPasswordHash(t *testing.T) {
 func TestTokenBasic(t *testing.T) {
 	tokenSecret := "lollmao"
 	userID := uuid.New()
-	expiresIn := time.Duration.Minutes(2)
 
-	token, token_err := MakeJWT(userID, tokenSecret, time.Duration(expiresIn))
+	token, token_err := MakeJWT(userID, tokenSecret)
 	tokenID, validation_err := ValidateJWT(token, tokenSecret)
 	if token_err != nil || validation_err != nil || userID != tokenID {
 		t.Fatalf("TestTokenBasic failed.\nToken error: %s\nValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
@@ -40,22 +49,22 @@ func TestTokenBasic(t *testing.T) {
 func TestExpiredToken(t *testing.T) {
 	tokenSecret := "lollmao"
 	userID := uuid.New()
-	expiresIn := time.Duration.Seconds(0)
+	expiresAt := time.Now().Add(time.Hour)
 
-	token, token_err := MakeJWT(userID, tokenSecret, time.Duration(expiresIn))
-	time.Sleep(time.Second)
-	tokenID, validation_err := ValidateJWT(token, tokenSecret)
-	if validation_err == nil || token_err != nil || tokenID != uuid.Nil {
-		t.Fatalf("TestExpiredToken failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
-	}
+	token, token_err := MakeJWT(userID, tokenSecret)
+	at(expiresAt, func() {
+		tokenID, validation_err := ValidateJWT(token, tokenSecret)
+		if validation_err == nil || token_err != nil || tokenID != uuid.Nil {
+			t.Fatalf("TestExpiredToken failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
+		}
+	})
 }
 
 func TestWrongSecret(t *testing.T) {
 	tokenSecret := "lollmao"
 	userID := uuid.New()
-	expiresIn := time.Minute * 5
 
-	token, token_err := MakeJWT(userID, tokenSecret, expiresIn)
+	token, token_err := MakeJWT(userID, tokenSecret)
 	tokenID, validation_err := ValidateJWT(token, "lol")
 	if validation_err == nil || token_err != nil || tokenID != uuid.Nil {
 		t.Fatalf("TestWrongSecret failed.\nToken error: %snValidation error: %s\nuserID: %s\ntokenID:%s", token_err, validation_err, userID, tokenID)
