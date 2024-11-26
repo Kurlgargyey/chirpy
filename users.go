@@ -145,3 +145,20 @@ func (cfg *apiConfig) refreshTokenHandler() http.Handler {
 		w.Write(dat)
 	})
 }
+
+func (cfg *apiConfig) revokeTokenHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		bearerToken, bearerErr := auth.GetBearerToken(r.Header)
+		if bearerErr != nil {
+			writeError(w, "could not obtain a bearer token", 400)
+			return
+		}
+		err := cfg.db.RevokeToken(r.Context(), bearerToken)
+		if err != nil {
+			writeError(w, "could not revoke the refresh token", 400)
+			return
+		}
+		w.WriteHeader(204)
+	})
+}

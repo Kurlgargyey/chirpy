@@ -58,6 +58,7 @@ func main() {
 	srvMux.Handle("GET /api/chirps", apiCfg.getChirpsHandler())
 	srvMux.Handle("GET /api/chirps/{chirpID}", apiCfg.getChirpHandler())
 	srvMux.Handle("POST /api/refresh", apiCfg.refreshTokenHandler())
+	srvMux.Handle("POST /api/revoke", apiCfg.revokeTokenHandler())
 
 	//run server
 	server := http.Server{
