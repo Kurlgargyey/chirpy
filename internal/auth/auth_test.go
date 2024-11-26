@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -69,5 +70,12 @@ func TestGetBearer(t *testing.T) {
 	set_res, set_err := GetBearerToken(headers)
 	if empty_res != "" || empty_err == nil || set_res != "lollmao" || set_err != nil {
 		t.Fatalf("TestGetBearer failed")
+	}
+}
+
+func TestMakeRefreshToken(t *testing.T) {
+	token, err := MakeRefreshToken()
+	if err != nil || len(token) != 64 {
+		t.Fatalf("TestMakeRefreshToken failed: %s", token)
 	}
 }
