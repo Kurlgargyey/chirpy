@@ -107,3 +107,33 @@ func (cfg *apiConfig) getChirpHandler() http.Handler {
 		w.Write(dat)
 	})
 }
+
+func (cfg *apiConfig) deleteChirpHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		bearerToken, bearerErr := auth.GetBearerToken(r.Header)
+		if bearerErr != nil {
+			writeError(w, "could not obtain a bearer token", 401)
+			return
+		}
+		userID, validationErr := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+		if validationErr != nil {
+			w.WriteHeader(401)
+			return
+		}
+		chirp, err := cfg.db.GetChirp(r.Context(), uuid.MustParse(r.PathValue("chirpID")))
+		if err != nil {
+			writeError(w, "error deleting chirp", 404)
+			return
+		}
+		if chirp.UserID != userID {
+			writeError(w, "user did not author that chirp", 403)
+			return
+		}
+		deleteErr := cfg.db.DeleteChirp(r.Context(), uuid.MustParse(r.PathValue("chirpID")))
+		if deleteErr != nil {
+			writeError(w, "error deleting chirp", 404)
+		}
+		w.WriteHeader(204)
+	})
+}
