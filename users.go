@@ -18,7 +18,6 @@ type userRequestBody struct {
 }
 type loginRequestBody struct {
 	userRequestBody
-	ExpiresIn int `json:"expires_in_seconds"`
 }
 
 type userResponse struct {
@@ -29,7 +28,8 @@ type userResponse struct {
 }
 type loginResponse struct {
 	userResponse
-	Token string `json:"token"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) createUserHandler() http.Handler {
@@ -86,12 +86,26 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 		}
 
 		expiresIn := time.Hour
-		if requestBody.ExpiresIn != 0 {
-			expiresIn = time.Duration(requestBody.ExpiresIn)
-		}
+
 		token, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresIn)
 		if err != nil {
 			writeError(w, fmt.Sprintf("error obtaining JWT: %s", err), 400)
+			return
+		}
+		refresh_token, err := auth.MakeRefreshToken()
+		if err != nil {
+			writeError(w, fmt.Sprintf("error obtaining refresh token: %s", err), 400)
+			return
+		}
+		refreshTokenParams := database.CreateRefreshTokenParams{
+			Token:     refresh_token,
+			UserID:    user.ID,
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 60),
+		}
+		_, refresh_err := cfg.db.CreateRefreshToken(r.Context(), refreshTokenParams)
+		if refresh_err != nil {
+			writeError(w, fmt.Sprintf("error committing refresh token to database: %s", refresh_err), 400)
+			return
 		}
 
 		response := loginResponse{
@@ -99,7 +113,8 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 				CreatedAt: user.CreatedAt,
 				UpdatedAt: user.UpdatedAt,
 				Email:     user.Email},
-			Token: token,
+			Token:        token,
+			RefreshToken: refresh_token,
 		}
 		dat, _ := json.Marshal(response)
 		w.Write(dat)
