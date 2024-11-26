@@ -167,7 +167,7 @@ func (cfg *apiConfig) updateUserHandler() http.Handler {
 		defer r.Body.Close()
 		bearerToken, bearerErr := auth.GetBearerToken(r.Header)
 		if bearerErr != nil {
-			writeError(w, "could not obtain a bearer token", 400)
+			writeError(w, "could not obtain a bearer token", 401)
 			return
 		}
 		userID, validationErr := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
