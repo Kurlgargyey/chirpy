@@ -12,9 +12,8 @@ import (
 )
 
 type userRequestBody struct {
-	Password  string `json:"password"`
-	Email     string `json:"email"`
-	ExpiresIn int    `json:"expires_in_seconds"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 type loginRequestBody struct {
 	userRequestBody
@@ -160,5 +159,49 @@ func (cfg *apiConfig) revokeTokenHandler() http.Handler {
 			return
 		}
 		w.WriteHeader(204)
+	})
+}
+
+func (cfg *apiConfig) updateUserHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		bearerToken, bearerErr := auth.GetBearerToken(r.Header)
+		if bearerErr != nil {
+			writeError(w, "could not obtain a bearer token", 400)
+			return
+		}
+		userID, validationErr := auth.ValidateJWT(bearerToken, cfg.jwtSecret)
+		if validationErr != nil {
+			w.WriteHeader(401)
+			return
+		}
+		var requestBody userRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
+			return
+		}
+		hashed_pwd, err := auth.HashPassword(requestBody.Password)
+		if err != nil {
+			writeError(w, fmt.Sprintf("error hashing password: %s", err), 400)
+			return
+		}
+		updateParams := database.UpdateUserParams{
+			ID:             userID,
+			Email:          requestBody.Email,
+			HashedPassword: hashed_pwd,
+		}
+		newUser, err := cfg.db.UpdateUser(r.Context(), updateParams)
+		if err != nil {
+			writeError(w, "error updating user", 400)
+			return
+		}
+		userResponse := userResponse{
+			ID:        newUser.ID,
+			CreatedAt: newUser.CreatedAt,
+			UpdatedAt: newUser.UpdatedAt,
+			Email:     newUser.Email,
+		}
+		dat, _ := json.Marshal(userResponse)
+		w.Write(dat)
 	})
 }
