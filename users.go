@@ -222,6 +222,15 @@ func (cfg *apiConfig) updateUserHandler() http.Handler {
 func (cfg *apiConfig) upgradeUserHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
+		apiKey, keyErr := auth.GetAPIKey(r.Header)
+		if keyErr != nil {
+			writeError(w, "could not obtain an API key", 401)
+			return
+		}
+		if apiKey != cfg.polkaKey {
+			w.WriteHeader(401)
+			return
+		}
 		var requestBody webhookRequestBody
 		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
 			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
