@@ -26,5 +26,5 @@ RETURNING *;
 
 -- name: UnlockRed :exec
 UPDATE users
-SET chirpy_red = true
+SET is_chirpy_red = true
 WHERE id = $1;
