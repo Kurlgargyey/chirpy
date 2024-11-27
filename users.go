@@ -19,12 +19,21 @@ type loginRequestBody struct {
 	userRequestBody
 }
 
+type webhookRequestBody struct {
+	Event string     `json:"event"`
+	Data  userIdJSON `json:"data"`
+}
+
+type userIdJSON struct {
+	UserID uuid.UUID `json:"user_id"`
+}
+
 type userResponse struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	ChirpyRed bool      `json:"is_chirpy_red"`
+	ID          uuid.UUID `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	Email       string    `json:"email"`
+	IsChirpyRed bool      `json:"is_chirpy_red"`
 }
 type loginResponse struct {
 	userResponse
@@ -61,10 +70,11 @@ func (cfg *apiConfig) createUserHandler() http.Handler {
 				return
 			}
 			response := userResponse{
-				ID:        user.ID,
-				CreatedAt: user.CreatedAt,
-				UpdatedAt: user.UpdatedAt,
-				Email:     user.Email,
+				ID:          user.ID,
+				CreatedAt:   user.CreatedAt,
+				UpdatedAt:   user.UpdatedAt,
+				Email:       user.Email,
+				IsChirpyRed: user.IsChirpyRed,
 			}
 			dat, _ := json.Marshal(response)
 			w.WriteHeader(201)
@@ -112,9 +122,10 @@ func (cfg *apiConfig) loginHandler() http.Handler {
 
 		response := loginResponse{
 			userResponse: userResponse{ID: user.ID,
-				CreatedAt: user.CreatedAt,
-				UpdatedAt: user.UpdatedAt,
-				Email:     user.Email},
+				CreatedAt:   user.CreatedAt,
+				UpdatedAt:   user.UpdatedAt,
+				Email:       user.Email,
+				IsChirpyRed: user.IsChirpyRed},
 			Token:        token,
 			RefreshToken: refreshToken,
 		}
@@ -197,12 +208,33 @@ func (cfg *apiConfig) updateUserHandler() http.Handler {
 			return
 		}
 		userResponse := userResponse{
-			ID:        newUser.ID,
-			CreatedAt: newUser.CreatedAt,
-			UpdatedAt: newUser.UpdatedAt,
-			Email:     newUser.Email,
+			ID:          newUser.ID,
+			CreatedAt:   newUser.CreatedAt,
+			UpdatedAt:   newUser.UpdatedAt,
+			Email:       newUser.Email,
+			IsChirpyRed: newUser.IsChirpyRed,
 		}
 		dat, _ := json.Marshal(userResponse)
 		w.Write(dat)
+	})
+}
+
+func (cfg *apiConfig) upgradeUserHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		var requestBody webhookRequestBody
+		if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+			writeError(w, fmt.Sprintf("error decoding json: %s", err), 400)
+			return
+		}
+		if requestBody.Event != "user.upgraded" {
+			w.WriteHeader(204)
+			return
+		}
+		if err := cfg.db.UnlockRed(r.Context(), requestBody.Data.UserID); err != nil {
+			w.WriteHeader(404)
+			return
+		}
+		w.WriteHeader(204)
 	})
 }

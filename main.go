@@ -61,6 +61,7 @@ func main() {
 	srvMux.Handle("POST /api/revoke", apiCfg.revokeTokenHandler())
 	srvMux.Handle("PUT /api/users", apiCfg.updateUserHandler())
 	srvMux.Handle("DELETE /api/chirps/{chirpID}", apiCfg.deleteChirpHandler())
+	srvMux.Handle("POST /api/polka/webhooks", apiCfg.upgradeUserHandler())
 
 	//run server
 	server := http.Server{
