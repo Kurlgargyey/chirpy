@@ -17,25 +17,23 @@ type apiConfig struct {
 	db             *database.Queries
 	platform       string
 	jwtSecret      string
+	polkaKey       string
 }
 
 func main() {
-	//define objects
+	//define environment
 	godotenv.Load()
-	dbURL := os.Getenv("DB_URL")
-	platform := os.Getenv("PLATFORM")
-	jwtSecret := os.Getenv("SECRET")
-	db, err := sql.Open("postgres", dbURL)
+	db, err := sql.Open("postgres", os.Getenv("DB_URL"))
 	if err != nil {
 		fmt.Println("error connecting to database: %w", err)
 		return
 	}
-	dbQueries := database.New(db)
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
-		db:             dbQueries,
-		platform:       platform,
-		jwtSecret:      jwtSecret,
+		db:             database.New(db),
+		platform:       os.Getenv("PLATFORM"),
+		jwtSecret:      os.Getenv("SECRET"),
+		polkaKey:       os.Getenv("POLKA_KEY"),
 	}
 	srvMux := http.NewServeMux()
 	fileServer := http.StripPrefix("/app",
