@@ -23,3 +23,8 @@ SET email = $2,
 	updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: UnlockRed :exec
+UPDATE users
+SET chirpy_red = true
+WHERE id = $1;
