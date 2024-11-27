@@ -66,7 +66,14 @@ func (cfg *apiConfig) getChirpsHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
 		defer r.Body.Close()
-		chirps, err := cfg.db.GetAllChirps(r.Context())
+		authorID := r.URL.Query().Get("author_id")
+		var chirps []database.Chirp
+		var err error
+		if authorID != "" {
+			chirps, err = cfg.db.GetUserChirps(r.Context(), uuid.MustParse(authorID))
+		} else {
+			chirps, err = cfg.db.GetAllChirps(r.Context())
+		}
 		if err != nil {
 			writeError(w, fmt.Sprintf("error retrieving chirps: %s", err), 400)
 		}
